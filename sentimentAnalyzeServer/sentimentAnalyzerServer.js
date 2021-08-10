@@ -1,5 +1,24 @@
 const express = require('express');
 const app = new express();
+const dotenv = require('dotenv');
+dotenv.config();
+
+function getNLUInstance() {
+    let api_key = process.env.API_KEY;
+    let api_url = process.env.API_URL;
+
+    const NaturalLanguageUnderstandingV1 = require('ibm-watson/natural-language-understanding/v1');
+    const { IamAuthenticator } = require('ibm-watson/auth');
+
+    const naturalLanguageUnderstanding = new NaturalLanguageUnderstandingV1({
+        version: '2021-08-01',
+        authenticator: new IamAuthenticator({
+           apikey: api_key,
+        }),
+        serviceUrl: api_url,
+    });
+    return naturalLanguageUnderstanding;
+}
 
 app.use(express.static('client'))
 
@@ -11,23 +30,77 @@ app.get("/",(req,res)=>{
   });
 
 app.get("/url/emotion", (req,res) => {
+    const analyzeParams = {
+        'url': req.query.url,
+        'features': {
+            'emotion': { }
+        }
+    };
 
-    return res.send({"happy":"90","sad":"10"});
-});
+    getNLUInstance().analyze(analyzeParams).then(analysisResults => {
+        //console.log(JSON.stringify(analysisResults, null, 2));
+        res.send(analysisResults.result.emotion.document.emotion); //e.g. {"sadness":0.44386,"joy":0.50775,"fear":0.044669,"disgust":0.027835,"anger":0.087054}
+    })
+    .catch(err => {
+        console.log('error:', err);
+        res.status(500).send("Could not process request.");
+    });
+});//GET /url/emotion
 
 app.get("/url/sentiment", (req,res) => {
-    return res.send("url sentiment for "+req.query.url);
-});
+    const analyzeParams = {
+        'url': req.query.url,
+        'features': {
+            'sentiment' : { }
+        }
+    };
+
+    getNLUInstance().analyze(analyzeParams).then(analysisResults => {
+        //console.log(JSON.stringify(analysisResults, null, 2));
+        res.send(analysisResults.result.sentiment.document.label); //e.g. "positive", "neutral", or "negative"
+    })
+    .catch(err => {
+        console.log('error:', err);
+        res.status(500).send("Could not process request.");
+    });
+});//GET /url/sentiment
+
 
 app.get("/text/emotion", (req,res) => {
-    return res.send({"happy":"10","sad":"90"});
-});
+    const analyzeParams = {
+        'text': req.query.text,
+        'features': {
+            'emotion': { }
+        }
+    };
+
+    getNLUInstance().analyze(analyzeParams).then(analysisResults => {
+        res.send(analysisResults.result.emotion.document.emotion);
+    })
+    .catch(err => {
+        console.log('error:', err);
+        res.status(500).send("Could not process request.");
+    });
+});//GET /text/emotion
 
 app.get("/text/sentiment", (req,res) => {
-    return res.send("text sentiment for "+req.query.text);
-});
+    const analyzeParams = {
+        'text': req.query.text,
+        'features': {
+            'sentiment' : { }
+        }
+    };
+
+    getNLUInstance().analyze(analyzeParams).then(analysisResults => {
+        res.send(analysisResults.result.sentiment.document.label);
+    })
+    .catch(err => {
+        console.log('error:', err);
+        res.status(500).send("Could not process request.");
+    });
+});//GET /text/sentiment
+
 
 let server = app.listen(8080, () => {
     console.log('Listening', server.address().port)
 })
-
